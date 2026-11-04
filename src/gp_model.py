@@ -464,6 +464,47 @@ class PanelGPModel(nn.Module):
         sigma_r2 = self.sigma_r2()
         return V0, V_phi, V_beta.expand(n), tr_DbDp.expand(n), sigma_r2.expand(n)
 
+    @torch.no_grad()
+    def bilinear_state(self, x_j: torch.Tensor, c_new_row: torch.Tensor, C_train: torch.Tensor):
+        """Mean m and covariance S_tilde of the stacked state z=(beta_j, phi_t)
+        in R^{2H} for one stock-month (Appendix B.3, Eq. B.13): the posterior
+        covariance of (beta_j, phi_t) under q(omega), with the innovation
+        variances D_beta, D_phi added back to the respective diagonal blocks
+        (Eq. 25, so that S_tilde matches the generative, not the posterior,
+        second moment used in the predictive density)."""
+        H = self.cfg.H
+        m_v, S_v, L_beta, L_phi, Kuu, Kphi, _ = self.variational_state(C_train)
+        a, b, rho = self.factor_shares()
+        X_new = x_j.unsqueeze(0)
+        c_new = c_new_row.unsqueeze(0)
+
+        m_beta = torch.zeros(H)
+        m_phi = torch.zeros(H)
+        G_beta, G_phi = [], []
+        for h in range(H):
+            G, _ = self._loading_conditional(X_new, h, Kuu[h], L_beta[h])
+            G_beta.append(G)
+            m_beta[h] = (G @ m_v[self._idx_U(h)])[0]
+        for h in range(H):
+            G, _ = self._factor_conditional(c_new, h, a, b, Kphi[h], L_phi[h], C_train)
+            G_phi.append(G)
+            m_phi[h] = (G @ m_v[self._idx_F(h)])[0]
+
+        S_tilde = torch.zeros(2 * H, 2 * H)
+        for h in range(H):
+            for hp in range(H):
+                S_tilde[h, hp] = (G_beta[h] @ S_v[self._idx_U(h), self._idx_U(hp)] @ G_beta[hp].T)[0, 0]
+                S_tilde[H + h, H + hp] = (G_phi[h] @ S_v[self._idx_F(h), self._idx_F(hp)] @ G_phi[hp].T)[0, 0]
+                cross = (G_beta[h] @ S_v[self._idx_U(h), self._idx_F(hp)] @ G_phi[hp].T)[0, 0]
+                S_tilde[h, H + hp] = cross
+                S_tilde[H + hp, h] = cross
+        D_beta, D_phi = self.innovation_covariances()
+        for h in range(H):
+            S_tilde[h, h] += self._loading_conditional(X_new, h, Kuu[h], L_beta[h])[1][0] + D_beta[h, h]
+            S_tilde[H + h, H + h] += self._factor_conditional(c_new, h, a, b, Kphi[h], L_phi[h], C_train)[1][0] + D_phi[h, h]
+        m = torch.cat([m_beta, m_phi])
+        return m, S_tilde, self.sigma_r2()
+
 
 def _inv_softplus(x: torch.Tensor) -> torch.Tensor:
     return torch.log(torch.expm1(x))

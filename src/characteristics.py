@@ -86,11 +86,11 @@ def stack_panel(ranked: dict[str, pd.DataFrame], returns: pd.DataFrame) -> pd.Da
     names = list(ranked)
     frames = []
     for name in names:
-        frames.append(ranked[name].stack(dropna=False).rename(name))
+        frames.append(ranked[name].stack(future_stack=True).rename(name))
     panel = pd.concat(frames, axis=1)
     panel.index.names = ["date", "ticker"]
     panel = panel.reset_index()
-    ret_next = returns.shift(-1).stack(dropna=False).rename("ret_next").reset_index()
+    ret_next = returns.shift(-1).stack(future_stack=True).rename("ret_next").reset_index()
     ret_next.columns = ["date", "ticker", "ret_next"]
     panel = panel.merge(ret_next, on=["date", "ticker"], how="left")
     return panel
