@@ -1,12 +1,13 @@
 """PanelGP: sparse variational Gaussian-process factor model.
 
-Custom implementation (paper Sections 3-4 and Appendices A-C). Context7 was
-consulted for sparse variational GP inference (gpytorch / GPflow style
-inducing-point regression); none of those libraries implement the bilinear,
-two-input (asset characteristics x date context) likelihood with a jointly
-dense posterior over inducing loadings and realized training factors that
-the paper specifies (Eq. 7-17), so the estimator below is written from the
-paper's equations rather than adapted from a GP toolbox.
+Custom implementation (paper Sections 3-4 and Appendices A-C). Standard
+sparse variational GP toolboxes (e.g. gpytorch, GPflow) implement
+inducing-point regression for a single input and a Gaussian likelihood, but
+none implement the bilinear, two-input (asset characteristics x date
+context) likelihood with a jointly dense posterior over inducing loadings
+and realized training factors that the paper specifies (Eq. 7-17), so the
+estimator below is written directly from the paper's equations rather than
+adapted from a GP toolbox.
 """
 
 from __future__ import annotations

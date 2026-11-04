@@ -1,11 +1,10 @@
 """IPCA benchmarks estimated by alternating least squares (paper Section 6.2).
 
-Context7 was consulted for an off-the-shelf IPCA implementation (the `ipca`
-PyPI package implements Kelly, Pettenuzzo and Shahidi 2019 ALS on balanced
-panels indexed by (entity, date)); it is not part of the pinned dependency
-set and its unbalanced-panel handling does not match the paper's forecasting
-design, so the estimator below follows Equation (29) and the paper's
-alternating-least-squares description directly.
+The `ipca` PyPI package implements Kelly, Pettenuzzo and Shahidi (2019) ALS
+on balanced panels indexed by (entity, date); it is not part of the pinned
+dependency set and its unbalanced-panel handling does not match the paper's
+forecasting design, so the estimator below follows Equation (29) and the
+paper's alternating-least-squares description directly.
 """
 
 from __future__ import annotations

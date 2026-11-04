@@ -4,11 +4,11 @@ PanelGP/IPCA fitting, forecasting, and evaluation is used by every experiment
 script so that kernel pairs, factor counts, and re-estimation schedules are
 compared on exactly the same data and code path.
 
-Context7 was consulted for IPCA (`ipca` package) and for sparse variational GP
-toolboxes (gpytorch/GPflow); as noted in src/ipca.py and src/gp_model.py,
-neither covers the paper's alternating-least-squares IPCA design or its
-bilinear two-input GP likelihood, so both estimators are the paper's own
-equations, called here through one shared data path.
+As noted in src/ipca.py and src/gp_model.py, neither the `ipca` package nor
+standard sparse variational GP toolboxes (gpytorch/GPflow) cover the paper's
+alternating-least-squares IPCA design or its bilinear two-input GP
+likelihood, so both estimators are the paper's own equations, called here
+through one shared data path.
 """
 
 from __future__ import annotations

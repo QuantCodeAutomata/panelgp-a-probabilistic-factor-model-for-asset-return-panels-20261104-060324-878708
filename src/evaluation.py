@@ -2,12 +2,10 @@
 Section 6.6, Appendix D.3).
 
 Custom implementation of Equations (30)-(34) and the Holm-adjusted
-Newey-West comparisons; `statsmodels` provides the long-run (HAC) variance
-estimator used inside the test (Context7: statsmodels.stats.sandwich_covariance
-covers OLS HAC standard errors, not a bare Bartlett long-run variance of a
-difference series, so the Newey-West kernel itself is implemented here
-following Newey and West (1987) and applied via scipy.stats for the normal
-p-value).
+Newey-West comparisons. `statsmodels.stats.sandwich_covariance` covers OLS
+HAC standard errors, not a bare Bartlett long-run variance of a difference
+series, so the Newey-West kernel itself is implemented here following Newey
+and West (1987) and applied via `scipy.stats` for the normal p-value.
 """
 
 from __future__ import annotations
