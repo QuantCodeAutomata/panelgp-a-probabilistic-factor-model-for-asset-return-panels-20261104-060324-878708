@@ -83,9 +83,18 @@ def annualized_vol(monthly_returns: np.ndarray) -> float:
 
 def turnover(w_prev: np.ndarray, w_curr: np.ndarray, r_assets: np.ndarray, r_f: float) -> float:
     """Equation (33): drift the previous weights forward by one month of
-    realized returns before comparing with the new weights."""
+    realized returns before comparing with the new weights.
+
+    Equation (33) does not cover the degenerate case of a portfolio return of
+    -100% (e.g. a near-total loss on a leveraged long-short book), which makes
+    the drift denominator 1+port_ret vanish. That case is treated as full
+    turnover (the book must be rebuilt from scratch) instead of propagating a
+    division-by-zero NaN."""
     port_ret = r_f + w_prev @ r_assets
-    w_drift = w_prev * (1 + r_f + r_assets) / (1 + port_ret)
+    denom = 1 + port_ret
+    if abs(denom) < 1e-8:
+        return float(np.sum(np.abs(w_curr)) + np.sum(np.abs(w_prev)))
+    w_drift = w_prev * (1 + r_f + r_assets) / denom
     return float(np.sum(np.abs(w_curr - w_drift)))
 
 

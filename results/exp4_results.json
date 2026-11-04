@@ -15,15 +15,15 @@
     "full": false,
     "risk_free_rate_assumption": 0.0
   },
-  "elapsed_seconds": 71.12657022476196,
+  "elapsed_seconds": 36.63035273551941,
   "metrics": {
     "PanelGP fixed": {
-      "predictive_r2_pct": -6.310620075067375,
-      "rank_correlation_pct": 0.14989837398373995,
-      "log_score": 1.3977722786939846,
-      "tangency_sharpe": 0.4724114200447038,
+      "predictive_r2_pct": -6.310842172140873,
+      "rank_correlation_pct": 0.14853033145716074,
+      "log_score": 1.397771465101784,
+      "tangency_sharpe": 0.47235170695516515,
       "long_short_sharpe": 0.17108387995575905,
-      "gmv_vol_pct": 9.92690333621332
+      "gmv_vol_pct": 9.926901892451642
     },
     "PanelGP rolling": {
       "predictive_r2_pct": 1.549015582032015,
@@ -58,9 +58,9 @@
         "break_even_cost_bps": 328.8999586718219
       },
       "long_short": {
-        "mean_turnover_pct": NaN,
-        "net_sharpe": NaN,
-        "break_even_cost_bps": NaN
+        "mean_turnover_pct": 197.89567437393896,
+        "net_sharpe": -0.30641356170266043,
+        "break_even_cost_bps": -6.041638437801707
       }
     },
     "IPCA+int rolling": {
@@ -70,9 +70,9 @@
         "break_even_cost_bps": 14.503323408963816
       },
       "long_short": {
-        "mean_turnover_pct": NaN,
-        "net_sharpe": NaN,
-        "break_even_cost_bps": NaN
+        "mean_turnover_pct": 284.8048255681571,
+        "net_sharpe": 0.253990799995881,
+        "break_even_cost_bps": 21.693017590778542
       }
     }
   },
@@ -80,27 +80,27 @@
     "tangency_sharpe": [
       {
         "pair": "PanelGP fixed vs PanelGP rolling",
-        "t_stat": -3.783950819906357,
-        "p_value": 0.0001543583376344415,
-        "p_value_holm": 0.0007717916881722076
+        "t_stat": -3.78410442033072,
+        "p_value": 0.00015426305133803275,
+        "p_value_holm": 0.0007713152566901638
       },
       {
         "pair": "PanelGP fixed vs IPCA rolling",
-        "t_stat": -1.8159212581887862,
-        "p_value": 0.0693824518315369,
-        "p_value_holm": 0.20814735549461072
+        "t_stat": -1.8160261621795233,
+        "p_value": 0.06936635899965204,
+        "p_value_holm": 0.20809907699895613
       },
       {
         "pair": "PanelGP fixed vs IPCA+int rolling",
-        "t_stat": 0.7014495944295444,
-        "p_value": 0.4830224807854968,
-        "p_value_holm": 0.9660449615709936
+        "t_stat": 0.7013154835371137,
+        "p_value": 0.48310615299749626,
+        "p_value_holm": 0.9662123059949925
       },
       {
         "pair": "PanelGP rolling vs IPCA rolling",
         "t_stat": 0.541689610585113,
         "p_value": 0.5880323480991365,
-        "p_value_holm": 0.9660449615709936
+        "p_value_holm": 0.9662123059949925
       },
       {
         "pair": "PanelGP rolling vs IPCA+int rolling",
@@ -156,20 +156,20 @@
     "gmv_vol": [
       {
         "pair": "PanelGP fixed vs PanelGP rolling",
-        "t_stat": -0.27915218398563585,
-        "p_value": 0.7801280371372517,
+        "t_stat": -0.2791412699570703,
+        "p_value": 0.780136412515041,
         "p_value_holm": 1.0
       },
       {
         "pair": "PanelGP fixed vs IPCA rolling",
-        "t_stat": 1.0674054610718156,
-        "p_value": 0.28578878349876047,
+        "t_stat": 1.067414541768547,
+        "p_value": 0.2857846847673491,
         "p_value_holm": 1.0
       },
       {
         "pair": "PanelGP fixed vs IPCA+int rolling",
-        "t_stat": 1.0942965721495825,
-        "p_value": 0.27382492821783,
+        "t_stat": 1.094306242426704,
+        "p_value": 0.273820688410491,
         "p_value_holm": 1.0
       },
       {

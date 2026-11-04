@@ -13,33 +13,33 @@
     ],
     "n_stock_months": 3840
   },
-  "elapsed_seconds": 265.53670597076416,
-  "mean_log_score_gain": -6.826849616422157,
+  "elapsed_seconds": 268.57374119758606,
+  "mean_log_score_gain": 0.023525460526189704,
   "gain_by_abs_std_error_bin": {
     "<1": {
-      "mean_gain": -3.122674613361474,
+      "mean_gain": 0.05556791975509867,
       "count": 2775
     },
     "1-2": {
-      "mean_gain": -13.458374514639779,
+      "mean_gain": -0.14616236620361853,
       "count": 864
     },
     "2-3": {
-      "mean_gain": -26.024325919733663,
+      "mean_gain": 0.040840287463797635,
       "count": 163
     },
     ">=3": {
-      "mean_gain": -44.20209919520103,
+      "mean_gain": 1.4674765432499228,
       "count": 38
     }
   },
   "subperiod_comparison": {
     "before_2021": {
-      "mean_gain": -7.3179559652076005,
+      "mean_gain": 0.016594974393432018,
       "n": 1920
     },
     "from_2021": {
-      "mean_gain": -6.3357432676367145,
+      "mean_gain": 0.030455946658947394,
       "n": 1920
     }
   }

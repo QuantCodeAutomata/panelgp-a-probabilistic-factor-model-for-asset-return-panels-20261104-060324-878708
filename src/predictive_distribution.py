@@ -93,16 +93,36 @@ def _convergence_interval(S_tilde: np.ndarray, A: np.ndarray, margin: float = 1e
     longer meaningful) log|det| beyond the true pole of the moment
     generating function. Writing S_tilde = L L^T and C = L^T A L
     (symmetric, since A = A^T), M stays positive definite exactly while
-    1 - 2 s lambda_i(C) > 0 for every eigenvalue lambda_i(C); this bounds s
-    to (max_{lambda_i<0} 1/(2 lambda_i), min_{lambda_i>0} 1/(2 lambda_i)).
+    1 - 2 s lambda_i(C) > 0 for every eigenvalue lambda_i(C) simultaneously.
+    For a positive eigenvalue lambda, 1/(2 lambda) is decreasing in lambda,
+    so the binding (tightest) upper bound on s comes from the LARGEST
+    positive eigenvalue; symmetrically the binding lower bound comes from
+    the most negative eigenvalue (smallest, i.e. largest in magnitude).
+    This bounds s to (1/(2 min(lambda_i<0)), 1/(2 max(lambda_i>0))).
+
+    S_tilde need only be positive semi-definite (the degenerate limit
+    S_tilde=0, a deterministic z, is a valid input): writing S_tilde=L L^T
+    (L possibly rank-deficient), B=S_tilde A=L(L^T A L)L^T is similar to the
+    symmetric matrix L^T A L padded with zero eigenvalues for L's null
+    space, so its spectrum is real and obtainable directly from B without
+    a Cholesky factor, which requires strict positive-definiteness.
     """
-    L = np.linalg.cholesky(S_tilde)
-    C = L.T @ A @ L
-    eigvals = np.linalg.eigvalsh(0.5 * (C + C.T))
+    B = S_tilde @ A
+    eigvals = np.linalg.eigvals(B).real
     pos = eigvals[eigvals > 1e-10]
     neg = eigvals[eigvals < -1e-10]
-    s_hi = 1.0 / (2.0 * pos.min()) if pos.size else np.inf
-    s_lo = 1.0 / (2.0 * neg.max()) if neg.size else -np.inf
+    s_hi = 1.0 / (2.0 * pos.max()) if pos.size else np.inf
+    s_lo = 1.0 / (2.0 * neg.min()) if neg.size else -np.inf
+    if not (np.isfinite(s_hi) and np.isfinite(s_lo)):
+        # No pole on one or both sides (e.g. the degenerate S_tilde=0 limit,
+        # where z is deterministic and K(s) is a pure quadratic in s): fall
+        # back to a wide finite bracket instead of an unbounded one, since
+        # the root search below needs a finite interval.
+        finite = np.concatenate([pos, -neg]) if pos.size or neg.size else np.array([1.0])
+        span = 1.0 / (2.0 * finite.min()) if finite.size else 1.0
+        s_hi = span * 1e6 if not np.isfinite(s_hi) else s_hi
+        s_lo = -span * 1e6 if not np.isfinite(s_lo) else s_lo
+        return s_lo, s_hi
     width = s_hi - s_lo
     return s_lo + margin * width, s_hi - margin * width
 
