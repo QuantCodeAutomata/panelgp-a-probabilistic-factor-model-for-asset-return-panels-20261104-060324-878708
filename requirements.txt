@@ -1,0 +1,11 @@
+numpy
+pandas
+scipy
+scikit-learn
+statsmodels
+matplotlib
+torch --index-url https://download.pytorch.org/whl/cpu
+requests
+python-dotenv
+pytest
+quantstats
