@@ -14,6 +14,7 @@ equations, called here through one shared data path.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -32,6 +33,7 @@ from src.evaluation import (
     annualized_vol,
     gaussian_log_score,
     long_short_return,
+    long_short_weights,
     monthly_rank_correlation,
     portfolio_weights,
     predictive_r2,
@@ -266,6 +268,105 @@ def evaluate_forecasts(forecasts: list[dict]) -> dict:
         "gmv_returns": gmv_rets,
         "long_short_returns": ls_rets,
         "gmv_weights_by_month": [portfolio_weights(f["mu"], f["Sigma"])["gmv"] for f in forecasts],
+        "tangency_weights_by_month": [portfolio_weights(f["mu"], f["Sigma"])["tangency"] for f in forecasts],
+        "long_short_weights_by_month": [long_short_weights(f["mu"]) for f in forecasts],
         "tickers_by_month": [f["tickers"] for f in forecasts],
+        "r_true_by_month": [f["r_true"] for f in forecasts],
         "dates": [f["date"] for f in forecasts],
     }
+
+
+# ---------------------------------------------------------------------------
+# Annual rolling re-estimation (paper Section 6.6, used by exp_4-exp_6)
+# ---------------------------------------------------------------------------
+ROLLING_CACHE_DIR = Path(__file__).resolve().parents[1] / "data" / "cache"
+
+
+def rolling_cache_path(tag: str) -> Path:
+    ROLLING_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    return ROLLING_CACHE_DIR / f"rolling_{tag}.pt"
+
+
+def rolling_panelgp_fit(
+    panel: pd.DataFrame,
+    context_raw: pd.DataFrame,
+    char_cols: list[str],
+    context_cols: list[str],
+    window_months: int,
+    forecast_years: list[int],
+    H: int,
+    M: int,
+    epochs: int,
+    n_seeds: int,
+    loading_kernel: str = "rbf",
+    factor_kernel: str = "rbf",
+    seed_base: int = 0,
+    verbose: bool = False,
+) -> list[dict]:
+    """Annual re-estimation on the trailing `window_months` months (Section
+    6.6: "first window ... forecasts 1995; last window forecasts 2024").
+    Returns, for every forecast year, the list of per-seed fitted models, the
+    panel rows forecast with them, and the context standardized on that
+    window's own training months (each window gets "own initialization,
+    context standardization, return scale", implementation_notes)."""
+    dates_all = sorted(panel["date"].unique())
+    results = []
+    for year in forecast_years:
+        train_end = pd.Timestamp(f"{year - 1}-12-31")
+        train_dates = [d for d in dates_all if d <= train_end]
+        if len(train_dates) < window_months:
+            continue
+        train_dates = train_dates[-window_months:]
+        train_start = train_dates[0]
+        panel_train = panel[(panel["date"] >= train_start) & (panel["date"] <= train_end)].dropna(subset=["ret_next"])
+        context_std = standardize_context_for_training(context_raw, str(train_start.date()), str(train_end.date()))
+        X, t_idx, R, C, _ = to_training_tensors(panel_train, context_std, char_cols, context_cols)
+        panel_year = slice_period(panel, f"{year}-01-01", f"{year}-12-31")
+        fits = []
+        for s in range(n_seeds):
+            seed = seed_base + s
+            fitted = fit_panelgp_variant(
+                X, t_idx, R, C, H=H, loading_kernel=loading_kernel, factor_kernel=factor_kernel,
+                M=M, epochs=epochs, seed=seed, char_cols=char_cols, context_cols=context_cols, verbose=verbose,
+            )
+            fits.append(fitted)
+        results.append({"year": year, "fitted": fits, "panel_year": panel_year, "context": context_std,
+                         "train_start": train_start, "train_end": train_end})
+        print(f"[rolling] year={year} trained on {train_start.date()}..{train_end.date()}, "
+              f"{len(panel_train)} rows, {len(panel_year)} forecast rows")
+    return results
+
+
+def rolling_panelgp_fit_cached(cache_path: Path | None, *args, **kwargs) -> list[dict]:
+    if cache_path is not None and Path(cache_path).exists():
+        return torch.load(cache_path, weights_only=False)
+    results = rolling_panelgp_fit(*args, **kwargs)
+    if cache_path is not None:
+        torch.save(results, cache_path)
+    return results
+
+
+def rolling_ipca_fit(
+    panel: pd.DataFrame,
+    char_cols: list[str],
+    window_months: int,
+    forecast_years: list[int],
+    H: int,
+    with_intercept: bool,
+) -> list[dict]:
+    """Annual re-estimation of IPCA by alternating least squares on the same
+    trailing-window schedule as `rolling_panelgp_fit` (Section 6.6)."""
+    dates_all = sorted(panel["date"].unique())
+    results = []
+    for year in forecast_years:
+        train_end = pd.Timestamp(f"{year - 1}-12-31")
+        train_dates = [d for d in dates_all if d <= train_end]
+        if len(train_dates) < window_months:
+            continue
+        train_dates = train_dates[-window_months:]
+        train_start = train_dates[0]
+        panel_train = panel[(panel["date"] >= train_start) & (panel["date"] <= train_end)].dropna(subset=["ret_next"])
+        ipca_fit = fit_ipca_variant(panel_train, char_cols, H=H, with_intercept=with_intercept)
+        panel_year = slice_period(panel, f"{year}-01-01", f"{year}-12-31")
+        results.append({"year": year, "ipca_fit": ipca_fit, "panel_year": panel_year})
+    return results

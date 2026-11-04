@@ -54,13 +54,22 @@ def portfolio_weights(mu_hat: np.ndarray, Sigma_hat: np.ndarray) -> dict:
     return {"gmv": w_gmv, "tangency": w_tan}
 
 
-def long_short_return(mu_hat: np.ndarray, r_true: np.ndarray, decile: float = 0.2) -> float:
-    """Equal-weight long top decile / short bottom decile, sorted on mu_hat."""
+def long_short_weights(mu_hat: np.ndarray, decile: float = 0.2) -> np.ndarray:
+    """Full-length weight vector for the equal-weight long top decile / short
+    bottom decile portfolio sorted on mu_hat (+1/k long, -1/k short, 0
+    elsewhere), used both for the return and for Equation (33) turnover."""
     n = len(mu_hat)
     k = max(1, int(round(n * decile)))
     order = np.argsort(mu_hat)
-    short_idx, long_idx = order[:k], order[-k:]
-    return float(r_true[long_idx].mean() - r_true[short_idx].mean())
+    w = np.zeros(n)
+    w[order[:k]] = -1.0 / k
+    w[order[-k:]] = 1.0 / k
+    return w
+
+
+def long_short_return(mu_hat: np.ndarray, r_true: np.ndarray, decile: float = 0.2) -> float:
+    """Equal-weight long top decile / short bottom decile, sorted on mu_hat."""
+    return float(long_short_weights(mu_hat, decile) @ r_true)
 
 
 def annualized_sharpe(monthly_returns: np.ndarray) -> float:

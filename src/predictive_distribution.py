@@ -27,39 +27,98 @@ def build_A_j(omega_h: np.ndarray) -> np.ndarray:
 
 
 def cgf_and_derivatives(s: float, m: np.ndarray, S_tilde: np.ndarray, A: np.ndarray, sigma_r2: float):
-    """Equation (22): K(s) for the scalar return r_j, together with K'(s) and
-    K''(s) obtained by automatic differentiation via finite differences of
-    the closed-form expression (stable because A, S_tilde are fixed, small
-    (2H x 2H) matrices)."""
-    def K(s_val):
-        M = np.eye(S_tilde.shape[0]) - 2 * s_val * S_tilde @ A
-        sign, logdet = np.linalg.slogdet(M)
-        Minv = np.linalg.solve(M, np.eye(M.shape[0]))
-        quad = m @ A @ Minv @ m
-        return -0.5 * logdet + s_val * quad + 0.5 * sigma_r2 * s_val ** 2
+    """Cumulant generating function of r_j = z^T A z + sigma_r*eps, z ~
+    N(m, S_tilde), eps ~ N(0,1) (Equation 22, single-asset state z=(beta_j,
+    phi_t) of Equation B.13 with A = A_j of Equation B.2).
 
-    h = 1e-4
-    K0 = K(s)
-    K1 = (K(s + h) - K(s - h)) / (2 * h)
-    K2 = (K(s + h) - 2 * K0 + K(s - h)) / h ** 2
+    Writing z = m + Lx with S_tilde = L L^T and x ~ N(0,I), s*z^T A z + a
+    linear-in-x term reduces to the standard quadratic-plus-linear form in a
+    standard normal vector, whose cumulant generating function is the
+    classical result E[exp(a^T x + x^T C x)] = |I-2C|^{-1/2}
+    exp(0.5 a^T (I-2C)^{-1} a) with a = 2s L^T A m, C = s L^T A L; using the
+    determinant identity |I-2sL^TAL| = |I-2s S_tilde A| and
+    L(I-2sL^TAL)^{-1}L^T = (I-2s S_tilde A)^{-1} S_tilde gives the closed
+    form below (verified against a direct two-dimensional moment-generating-
+    function quadrature for H=1 to machine precision).
+
+    K(s), K'(s), K''(s) are obtained in closed form by matrix calculus on
+    M(s) = I - 2 s B, B = S_tilde A (dM/ds = -2B), rather than by finite
+    differences: close to the pole of the cumulant generating function (the
+    edge of `_convergence_interval`, which the saddlepoint search of
+    `solve_saddlepoint` approaches for larger |r|), a finite-difference
+    derivative is numerically unstable because K(s) itself diverges there,
+    while the closed-form derivative below stays accurate up to the pole.
+
+    With Minv = M^{-1}, dMinv/ds = 2 Minv B Minv and
+    d^2 Minv/ds^2 = 8 Minv B Minv B Minv (product rule applied twice).
+    Writing f0(s) = -0.5 logdet M(s), b(s) = p^T Minv(s) q with p = A m,
+    q = S_tilde A m, and g(s) = 2 s^2 b(s), h(s) = 0.5 sigma_r2 s^2:
+    K(s) = s (m^T A m) + f0(s) + g(s) + h(s)."""
+    B = S_tilde @ A
+    I = np.eye(S_tilde.shape[0])
+    M = I - 2 * s * B
+    sign, logdet = np.linalg.slogdet(M)
+    Minv = np.linalg.solve(M, I)
+    a_lin = m @ A @ m
+    p = A @ m
+    q = S_tilde @ A @ m
+
+    MinvB = Minv @ B
+    f0 = -0.5 * logdet
+    f0_p1 = np.trace(MinvB)
+    f0_p2 = 2.0 * np.trace(MinvB @ MinvB)
+
+    b0 = p @ Minv @ q
+    b_p1 = 2.0 * (p @ Minv @ B @ Minv @ q)
+    b_p2 = 8.0 * (p @ Minv @ B @ Minv @ B @ Minv @ q)
+
+    g0 = 2.0 * s ** 2 * b0
+    g_p1 = 4.0 * s * b0 + 2.0 * s ** 2 * b_p1
+    g_p2 = 4.0 * b0 + 8.0 * s * b_p1 + 2.0 * s ** 2 * b_p2
+
+    K0 = s * a_lin + f0 + g0 + 0.5 * sigma_r2 * s ** 2
+    K1 = a_lin + f0_p1 + g_p1 + sigma_r2 * s
+    K2 = f0_p2 + g_p2 + sigma_r2
     return K0, K1, K2
 
 
-def solve_saddlepoint(r: float, m: np.ndarray, S_tilde: np.ndarray, A: np.ndarray, sigma_r2: float, bracket: float = 50.0) -> float:
-    """Root of K'(s) = r (Section 6.7, "saddlepoint s")."""
+def _convergence_interval(S_tilde: np.ndarray, A: np.ndarray, margin: float = 1e-6) -> tuple[float, float]:
+    """Open interval of s for which M(s) = I - 2 s S_tilde A stays positive
+    definite, i.e. the domain on which K(s) = log E[exp(s r_j)] of Equation
+    (22) actually converges.
+
+    `np.linalg.slogdet` returns log|det(M)| regardless of the sign of
+    det(M), so a root search that is allowed to leave this interval can find
+    a spurious stationary point of the analytically continued (but no
+    longer meaningful) log|det| beyond the true pole of the moment
+    generating function. Writing S_tilde = L L^T and C = L^T A L
+    (symmetric, since A = A^T), M stays positive definite exactly while
+    1 - 2 s lambda_i(C) > 0 for every eigenvalue lambda_i(C); this bounds s
+    to (max_{lambda_i<0} 1/(2 lambda_i), min_{lambda_i>0} 1/(2 lambda_i)).
+    """
+    L = np.linalg.cholesky(S_tilde)
+    C = L.T @ A @ L
+    eigvals = np.linalg.eigvalsh(0.5 * (C + C.T))
+    pos = eigvals[eigvals > 1e-10]
+    neg = eigvals[eigvals < -1e-10]
+    s_hi = 1.0 / (2.0 * pos.min()) if pos.size else np.inf
+    s_lo = 1.0 / (2.0 * neg.max()) if neg.size else -np.inf
+    width = s_hi - s_lo
+    return s_lo + margin * width, s_hi - margin * width
+
+
+def solve_saddlepoint(r: float, m: np.ndarray, S_tilde: np.ndarray, A: np.ndarray, sigma_r2: float) -> float:
+    """Root of K'(s) = r (Section 6.7, "saddlepoint s"), searched only inside
+    the true convergence interval of the cumulant generating function (see
+    `_convergence_interval`); K'(s) diverges to -inf/+inf at the interval's
+    ends, so the root is always bracketed there."""
     def deriv(s_val):
         _, K1, _ = cgf_and_derivatives(s_val, m, S_tilde, A, sigma_r2)
         return K1 - r
-    lo, hi = -bracket, bracket
+    lo, hi = _convergence_interval(S_tilde, A)
     f_lo, f_hi = deriv(lo), deriv(hi)
-    tries = 0
-    while f_lo * f_hi > 0 and tries < 6:
-        bracket *= 2
-        lo, hi = -bracket, bracket
-        f_lo, f_hi = deriv(lo), deriv(hi)
-        tries += 1
     if f_lo * f_hi > 0:
-        raise RuntimeError("saddlepoint bracket search failed")
+        raise RuntimeError("saddlepoint root not bracketed inside the CGF's convergence interval")
     return optimize.brentq(deriv, lo, hi, xtol=1e-10)
 
 
@@ -72,10 +131,22 @@ def bilinear_log_density(r: float, m: np.ndarray, S_tilde: np.ndarray, A: np.nda
     def integrand(w):
         s_val = s_star + 1j * w / d
         M = np.eye(S_tilde.shape[0]) - 2 * s_val * S_tilde @ A
-        sign, logdet = np.linalg.slogdet(M)
+        sign, logdet = np.linalg.slogdet(M.astype(np.complex128))
+        # |sign| = 1 for complex slogdet; log(det M) = log(sign) + logdet,
+        # so the phase arg(sign) must be kept for complex s (it vanishes for
+        # the real s used elsewhere, where sign=+1 inside the convergence
+        # interval, which is why the plain real-valued logdet sufficed there
+        # but silently dropping it here biased every complex evaluation).
+        logdet_complex = np.log(sign) + logdet
         Minv = np.linalg.solve(M, np.eye(M.shape[0]))
-        quad = m @ A @ Minv @ m
-        K_val = -0.5 * logdet + s_val * quad + 0.5 * sigma_r2 * s_val ** 2
+        quad_linear = m @ A @ m
+        quad_curved = m @ A @ Minv @ S_tilde @ A @ m
+        K_val = (
+            s_val * quad_linear
+            - 0.5 * logdet_complex
+            + 2.0 * s_val ** 2 * quad_curved
+            + 0.5 * sigma_r2 * s_val ** 2
+        )
         return np.real(np.exp(K_val - K_star - 1j * w * r / d))
 
     integral, _ = integrate.quad_vec(integrand, 0.0, np.inf, epsabs=tol, epsrel=tol)
